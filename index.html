@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAP | Social Interaction & Messaging</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts: Outift & Space Grotesk for that modern/social vibe -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body class="dark-theme">
+    <div id="app-root">
+        <!-- The Entrance / Landing Page -->
+        <main id="entrance-scene" class="scene active">
+            <div class="glow-bg"></div>
+            <div class="entrance-container">
+                <header class="entrance-header">
+                    <div class="yap-logo-wrapper">
+                        <img src="logo.png" alt="YAP Logo" class="yap-logo-main">
+                        <div class="logo-pulse"></div>
+                    </div>
+                    <h1 class="yap-title-text">YAP</h1>
+                    <p class="yap-tagline">More than just a chat.</p>
+                </header>
+
+                <section class="auth-box glass-panel">
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" data-tab="login">Login</button>
+                        <button class="auth-tab" data-tab="signup">Sign Up</button>
+                    </div>
+
+                    <form id="auth-form" class="auth-form">
+                        <div class="input-group">
+                            <label for="auth-identifier">Phone or Email</label>
+                            <input type="text" id="auth-identifier" placeholder="e.g. +1 234 567 8900" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="auth-password">Password</label>
+                            <input type="password" id="auth-password" placeholder="••••••••" required>
+                        </div>
+                        <button type="submit" class="cta-button primary">Enter YAP</button>
+                    </form>
+
+                    <footer class="auth-footer">
+                        <p>By entering, you agree to the <span>YapTerms</span>.</p>
+                    </footer>
+                </section>
+            </div>
+        </main>
+
+        <!-- Main Chat UI -->
+        <main id="chat-scene" class="scene">
+            <div class="chat-layout glass-panel">
+                <!-- Sidebar -->
+                <aside class="chat-sidebar">
+                    <div class="sidebar-header">
+                        <img src="logo.png" alt="Mini Logo" class="mini-logo">
+                        <div class="user-profile-mini">
+                            <div class="status-indicator online"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="search-box">
+                        <input type="text" placeholder="Search friends or yaps...">
+                    </div>
+
+                    <div class="chats-list">
+                        <!-- Mock Chat Entries -->
+                        <div class="chat-item active">
+                            <div class="chat-avatar">JD</div>
+                            <div class="chat-info">
+                                <span class="chat-name">Jayden</span>
+                                <span class="chat-preview">Did you see the new volume?</span>
+                            </div>
+                            <div class="chat-meta">
+                                <span class="chat-time">3m</span>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Conversation Section -->
+                <section class="conversation-view">
+                    <header class="chat-header">
+                        <div class="header-main">
+                            <h3>Jayden</h3>
+                            <span class="header-status">online</span>
+                        </div>
+                        <div class="header-actions">
+                            <button class="action-icon nudge-btn" onclick="YAP.nudge()" title="Nudge!">⚡</button>
+                            <button class="action-icon">📞</button>
+                            <button class="action-icon">🎥</button>
+                        </div>
+                    </header>
+
+                    <div id="messages-thread" class="messages-container">
+                        <div class="msg-bubble incoming">
+                            Yo! YAP is looking fire.
+                        </div>
+                        <div class="msg-bubble outgoing">
+                            Right? The nudge feature is a game changer.
+                        </div>
+                    </div>
+
+                    <footer class="chat-footer">
+                        <div class="input-wrapper">
+                            <button class="footer-plus">＋</button>
+                            <input type="text" placeholder="Type a message...">
+                            <button class="footer-send">YAP</button>
+                        </div>
+                    </footer>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="main.js" type="module"></script>
+</body>
+</html>
