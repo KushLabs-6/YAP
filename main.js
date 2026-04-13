@@ -3,6 +3,18 @@
  * "More than just a chat."
  */
 
+// --- FIREBASE CONFIGURATION ---
+// REPLACE THE PLACEHOLDERS BELOW WITH YOUR ACTUAL FIREBASE KEYS
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "yap-demo.firebaseapp.com",
+    databaseURL: "https://your-project-id.firebaseio.com",
+    projectId: "your-project-id",
+    storageBucket: "your-project-id.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
 const YAP = {
     // state
     currentScene: 'entrance-scene',
@@ -14,6 +26,60 @@ const YAP = {
         this.bindEvents();
         this.checkAuth();
         this.initSound();
+        this.initFirebase();
+    },
+
+    checkAuth() {
+        // Initial setup for checking existing sessions
+        console.log("Session verified.");
+    },
+
+    initFirebase() {
+        // We use the dynamic import to keep it lightweight
+        import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js').then(app => {
+            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
+                try {
+                    this.app = app.initializeApp(firebaseConfig);
+                    this.db = db.getDatabase(this.app);
+                    this.dbRef = db.ref(this.db, 'yaps');
+                    this.nudgeRef = db.ref(this.db, 'nudges');
+                    this.tttRef = db.ref(this.db, 'games/ttt');
+                    
+                    this.listenToDb(db);
+                } catch (e) {
+                    console.warn("Firebase not configured. Running in Demo Mode.");
+                }
+            });
+        });
+    },
+
+    listenToDb(db) {
+        // Listen for new messages
+        db.onChildAdded(this.dbRef, (snapshot) => {
+            const msg = snapshot.val();
+            // Don't duplicate if it's our own local optimistic update
+            // (In this simple version, we'll just clear and redraw or filter)
+            this.renderMessage(msg.text, msg.sender === this.currentUser?.email ? 'outgoing' : 'incoming');
+        });
+
+        // Listen for nudges
+        db.onValue(this.nudgeRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.sender !== this.currentUser?.email && (Date.now() - data.time < 2000)) {
+                this.receiveNudge();
+            }
+        });
+
+        // Listen for Tic Tac Toe board updates
+        db.onValue(this.tttRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                this.gameState = data.board;
+                this.currentPlayer = data.nextPlayer;
+                this.gameActive = data.active;
+                this.renderBoard();
+            }
+        });
     },
 
     initSound() {
@@ -62,6 +128,58 @@ const YAP = {
             e.preventDefault();
             this.handleAuth();
         });
+
+        // --- Chat Scene Bindings ---
+        // Nudge Button
+        const nudgeBtn = document.querySelector('.nudge-btn');
+        if (nudgeBtn) {
+            nudgeBtn.addEventListener('click', () => this.nudge());
+        }
+
+        // Message Input Handling
+        const messageInput = document.querySelector('.chat-footer input[type="text"]');
+        const sendBtn = document.querySelector('.footer-send');
+        
+        if (sendBtn && messageInput) {
+            const sendMessage = () => {
+                const text = messageInput.value.trim();
+                if (text) {
+                    // Send to Firebase if connected
+                    if (this.db) {
+                        import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
+                            db.push(this.dbRef, {
+                                text: text,
+                                sender: this.currentUser.email,
+                                time: Date.now()
+                            });
+                        });
+                    } else {
+                        this.renderMessage(text, 'outgoing');
+                    }
+                    messageInput.value = '';
+                }
+            };
+
+            sendBtn.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        }
+
+        // Media Input Handling
+        const mediaInput = document.getElementById('media-input');
+        if (mediaInput) {
+            mediaInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (re) => {
+                        this.addMediaMessage(re.target.result, 'outgoing');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
     },
 
     updateAuthForm(mode) {
@@ -74,8 +192,8 @@ const YAP = {
     },
 
     handleAuth() {
-        const identifier = document.getElementById('auth-identifier').value.trim();
-        const password = document.getElementById('auth-password').value;
+        let identifier = document.getElementById('auth-identifier').value.trim().toLowerCase();
+        let password = document.getElementById('auth-password').value.trim();
         const submitBtn = document.querySelector('#auth-form .cta-button');
         
         if (!identifier || !password) {
@@ -89,16 +207,23 @@ const YAP = {
         
         console.log(`🔑 Attempting auth for: ${identifier}`);
         
-        // Mock Auth Logic (Admin Check)
+        // Mock Auth Logic (Expanded with Test Accounts)
         setTimeout(() => {
-            if (identifier === 'kingadmin@yap.com' && password === 'promo123456') {
-                this.currentUser = { email: identifier, role: 'ADMIN' };
-                this.showToast("👑 Welcome back, King Admin!");
-                this.enterAdminMode();
+            const validAccounts = {
+                'kingadmin@yap.com': { pass: 'promo123456', role: 'ADMIN' },
+                'test1@yap.com': { pass: 'yap2026', role: 'USER' },
+                'test2@yap.com': { pass: 'yap2026', role: 'USER' }
+            };
+
+            const user = validAccounts[identifier];
+
+            if (user && password.toLowerCase() === user.pass.toLowerCase()) {
+                this.currentUser = { email: identifier, role: user.role };
+                this.showToast(`Welcome back, ${identifier}!`);
+                if (user.role === 'ADMIN') this.enterAdminMode();
+                else this.switchScene('chat-scene');
             } else {
-                this.currentUser = { email: identifier, role: 'USER' };
-                this.showToast(`Welcome to YAP, ${identifier}!`);
-                this.switchScene('chat-scene');
+                this.showToast("Invalid Credentials. Check PROJECT_README.txt");
             }
             
             // Clean up button
@@ -128,52 +253,6 @@ const YAP = {
         if (nextScene) {
             nextScene.classList.add('active');
             this.currentScene = sceneId;
-        }
-    },
-
-        // Nudge Button
-        const nudgeBtn = document.querySelector('.nudge-btn');
-        if (nudgeBtn) {
-            nudgeBtn.addEventListener('click', () => this.nudge());
-        }
-
-        // Message Input Handling
-        const messageInput = document.querySelector('.chat-footer input');
-        const sendBtn = document.querySelector('.footer-send');
-        
-        if (sendBtn && messageInput) {
-            const sendMessage = () => {
-                const text = messageInput.value.trim();
-                if (text) {
-                    this.addMessage(text, 'outgoing');
-                    messageInput.value = '';
-                    
-                    // Mock reply delay
-                    setTimeout(() => {
-                        this.addMessage("That's deep. Let's YAP more about it.", 'incoming');
-                    }, 1500);
-                }
-            };
-
-            sendBtn.addEventListener('click', sendMessage);
-            messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendMessage();
-            });
-        }
-
-        // Media Input Handling
-        const mediaInput = document.getElementById('media-input');
-        if (mediaInput) {
-            mediaInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (re) => {
-                        this.addMediaMessage(re.target.result, 'outgoing');
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
         }
     },
 
@@ -212,12 +291,34 @@ const YAP = {
 
         if (this.gameState[clickedCellIndex] !== "" || !this.gameActive) return;
 
+        // Local update
         this.gameState[clickedCellIndex] = this.currentPlayer;
-        clickedCell.innerHTML = this.currentPlayer;
-        clickedCell.classList.add(this.currentPlayer.toLowerCase());
+        const nextPlayer = this.currentPlayer === "X" ? "O" : "X";
         
+        // Push board to Firebase
+        if (this.db) {
+            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
+                db.set(this.tttRef, {
+                    board: this.gameState,
+                    nextPlayer: nextPlayer,
+                    active: true,
+                    lastMovedBy: this.currentUser.email
+                });
+            });
+        }
+
         this.playTick();
         this.checkGameResult();
+    },
+
+    renderBoard() {
+        const cells = document.querySelectorAll('.ttt-cell');
+        this.gameState.forEach((val, i) => {
+            cells[i].innerHTML = val;
+            cells[i].classList.remove('x', 'o');
+            if (val) cells[i].classList.add(val.toLowerCase());
+        });
+        document.getElementById('game-status').innerHTML = this.gameActive ? `${this.currentPlayer}'s Turn` : "Game Over";
     },
 
     checkGameResult() {
@@ -262,11 +363,18 @@ const YAP = {
         this.gameActive = true;
         this.currentPlayer = "X";
         this.gameState = ["", "", "", "", "", "", "", "", ""];
-        document.getElementById('game-status').innerHTML = "X's Turn";
-        document.querySelectorAll('.ttt-cell').forEach(cell => {
-            cell.innerHTML = "";
-            cell.classList.remove('x', 'o');
-        });
+        
+        if (this.db) {
+            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
+                db.set(this.tttRef, {
+                    board: this.gameState,
+                    nextPlayer: "X",
+                    active: true
+                });
+            });
+        } else {
+            this.renderBoard();
+        }
     },
 
     playTick() {
@@ -282,13 +390,24 @@ const YAP = {
         osc.stop(this.audioCtx.currentTime + 0.1);
     },
 
-    addMessage(text, type) {
+    renderMessage(text, type) {
         const thread = document.getElementById('messages-thread');
         if (!thread) return;
+
+        // Check if message already exists (simple deduplication by text/time within 1s)
+        const lastMsg = thread.lastElementChild;
+        if (lastMsg && lastMsg.textContent === text && type === 'outgoing') return;
 
         const msg = document.createElement('div');
         msg.className = `msg-bubble ${type}`;
         msg.textContent = text;
+        
+        // Add timestamp
+        const time = document.createElement('span');
+        time.className = 'msg-time';
+        time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        msg.appendChild(time);
+
         this.animateIn(msg, thread);
     },
 
@@ -325,15 +444,42 @@ const YAP = {
     },
 
     // Expressive Features
+    receiveNudge() {
+        // Triggered by Firebase when someone else nudges us
+        const body = document.body;
+        if (body.classList.contains('nudge-animation')) return;
+
+        body.classList.add('nudge-animation');
+        this.playZing();
+        this.showToast("⚡ YOU GOT NUDGED!");
+
+        if ('vibrate' in navigator) {
+            navigator.vibrate([200, 100, 200]);
+        }
+        
+        setTimeout(() => {
+            body.classList.remove('nudge-animation');
+        }, 500);
+    },
+
     nudge() {
         const body = document.body;
-        if (body.classList.contains('nudge-animation')) return; // Cooldown (mindful of spam)
+        if (body.classList.contains('nudge-animation')) return; 
+
+        // Send to Firebase immediately
+        if (this.db) {
+            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
+                db.set(this.nudgeRef, {
+                    sender: this.currentUser.email,
+                    time: Date.now()
+                });
+            });
+        }
 
         body.classList.add('nudge-animation');
         this.playZing();
         this.showToast("⚡ NUDGE SENT!");
 
-        // Haptic feel
         if ('vibrate' in navigator) {
             navigator.vibrate([100, 50, 100]);
         }

@@ -470,6 +470,19 @@ body {
     box-shadow: 0 10px 20px var(--primary-glow);
 }
 
+.msg-time {
+    display: block;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 4px;
+    text-align: right;
+}
+
+.incoming .msg-time {
+    color: var(--text-grey);
+    text-align: left;
+}
+
 .media-bubble {
     padding: 6px !important;
     background: rgba(255,255,255,0.05);
