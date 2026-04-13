@@ -149,6 +149,24 @@ const YAP = {
         }
     },
 
+    toggleWatchModal() {
+        const modal = document.getElementById('watch-modal');
+        if (modal) modal.classList.toggle('active');
+    },
+
+    startWatchSession() {
+        const link = document.getElementById('yt-link').value;
+        const container = document.getElementById('yt-player-container');
+        
+        if (link.includes('youtube.com') || link.includes('youtu.be')) {
+            const videoId = link.split('v=')[1] || link.split('/').pop();
+            container.innerHTML = `<iframe width="100%" height="280" src="https://www.youtube.com/embed/${videoId.split('&')[0]}?autoplay=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border-radius:12px;"></iframe>`;
+            this.showToast("🎬 Session started! Syncing with others...");
+        } else {
+            this.showToast("Please enter a valid YouTube link.");
+        }
+    },
+
     addMessage(text, type) {
         const thread = document.getElementById('messages-thread');
         if (!thread) return;

@@ -5,11 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YAP | Social Interaction & Messaging</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Google Fonts: Outift & Space Grotesk for that modern/social vibe -->
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 </head>
 <body class="dark-theme">
+    <!-- Watch Together Modal -->
+    <div id="watch-modal" class="modal-overlay">
+        <div class="modal-content glass-panel">
+            <header class="modal-header">
+                <h3>Watch Together</h3>
+                <button class="modal-close" onclick="YAP.toggleWatchModal()">×</button>
+            </header>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>Paste YouTube Link</label>
+                    <input type="text" id="yt-link" placeholder="https://youtube.com/watch?v=...">
+                </div>
+                <button class="cta-button primary" onclick="YAP.startWatchSession()">Start Session</button>
+                <div id="yt-player-container" class="yt-embed-placeholder">
+                    <p>Enter a link to start the synchronized YAP session.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="app-root">
+
         <!-- The Entrance / Landing Page -->
         <main id="entrance-scene" class="scene active">
             <div class="glow-bg"></div>
@@ -87,8 +108,10 @@
                             <span class="header-status">online</span>
                         </div>
                         <div class="header-actions">
+                            <button class="action-icon" onclick="YAP.toggleWatchModal()" title="Watch Together">📺</button>
                             <button class="action-icon nudge-btn" onclick="YAP.nudge()" title="Nudge!">⚡</button>
                             <button class="action-icon">📞</button>
+
                             <button class="action-icon">🎥</button>
                         </div>
                     </header>
