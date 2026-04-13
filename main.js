@@ -74,11 +74,12 @@ const YAP = {
     },
 
     handleAuth() {
-        const identifier = document.getElementById('auth-identifier').value;
+        const identifier = document.getElementById('auth-identifier').value.trim();
+        const password = document.getElementById('auth-password').value;
         const submitBtn = document.querySelector('#auth-form .cta-button');
         
-        if (!identifier) {
-            this.showToast("Please enter a phone or email.");
+        if (!identifier || !password) {
+            this.showToast("Please enter your credentials.");
             return;
         }
 
@@ -88,15 +89,37 @@ const YAP = {
         
         console.log(`🔑 Attempting auth for: ${identifier}`);
         
-        // Mock Auth Success Delay
+        // Mock Auth Logic (Admin Check)
         setTimeout(() => {
-            this.showToast(`Welcome to YAP, ${identifier}!`);
-            this.switchScene('chat-scene');
+            if (identifier === 'kingadmin@yap.com' && password === 'promo123456') {
+                this.currentUser = { email: identifier, role: 'ADMIN' };
+                this.showToast("👑 Welcome back, King Admin!");
+                this.enterAdminMode();
+            } else {
+                this.currentUser = { email: identifier, role: 'USER' };
+                this.showToast(`Welcome to YAP, ${identifier}!`);
+                this.switchScene('chat-scene');
+            }
             
             // Clean up button
             submitBtn.disabled = false;
             submitBtn.textContent = 'Enter YAP';
         }, 1200);
+    },
+
+    enterAdminMode() {
+        this.switchScene('chat-scene');
+        document.body.classList.add('admin-mode');
+        this.showToast("🛠️ Admin Controls Enabled");
+        
+        // Add Admin Badge to Header
+        const header = document.querySelector('.header-main');
+        if (header && !document.querySelector('.admin-badge')) {
+            const badge = document.createElement('span');
+            badge.className = 'admin-badge';
+            badge.textContent = 'ADMIN';
+            header.appendChild(badge);
+        }
     },
 
     switchScene(sceneId) {
