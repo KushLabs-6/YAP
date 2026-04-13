@@ -104,7 +104,8 @@
 
                     <footer class="chat-footer">
                         <div class="input-wrapper">
-                            <button class="footer-plus">＋</button>
+                            <input type="file" id="media-input" accept="image/*" style="display: none;">
+                            <button class="footer-plus" onclick="document.getElementById('media-input').click()">＋</button>
                             <input type="text" placeholder="Type a message...">
                             <button class="footer-send">YAP</button>
                         </div>

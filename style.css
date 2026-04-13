@@ -470,6 +470,19 @@ body {
     box-shadow: 0 10px 20px var(--primary-glow);
 }
 
+.media-bubble {
+    padding: 6px !important;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+}
+
+.chat-sent-img {
+    max-width: 100%;
+    border-radius: 14px;
+    display: block;
+}
+
+
 /* Chat Footer Input */
 .chat-footer {
     padding: 1.5rem;

@@ -132,6 +132,21 @@ const YAP = {
                 if (e.key === 'Enter') sendMessage();
             });
         }
+
+        // Media Input Handling
+        const mediaInput = document.getElementById('media-input');
+        if (mediaInput) {
+            mediaInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (re) => {
+                        this.addMediaMessage(re.target.result, 'outgoing');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
     },
 
     addMessage(text, type) {
@@ -141,20 +156,39 @@ const YAP = {
         const msg = document.createElement('div');
         msg.className = `msg-bubble ${type}`;
         msg.textContent = text;
-        msg.style.opacity = '0';
-        msg.style.transform = 'translateY(20px)';
+        this.animateIn(msg, thread);
+    },
+
+    addMediaMessage(src, type) {
+        const thread = document.getElementById('messages-thread');
+        if (!thread) return;
+
+        const msg = document.createElement('div');
+        msg.className = `msg-bubble media-bubble ${type}`;
         
-        thread.appendChild(msg);
+        const img = document.createElement('img');
+        img.src = src;
+        img.className = 'chat-sent-img';
+        
+        msg.appendChild(img);
+        this.animateIn(msg, thread);
+    },
+
+    animateIn(el, container) {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        
+        container.appendChild(el);
         
         // Trigger entrance animation
         requestAnimationFrame(() => {
-            msg.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-            msg.style.opacity = '1';
-            msg.style.transform = 'translateY(0)';
+            el.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
         });
 
         // Scroll to bottom
-        thread.scrollTop = thread.scrollHeight;
+        container.scrollTop = container.scrollHeight;
     },
 
     // Expressive Features
