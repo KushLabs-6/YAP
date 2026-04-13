@@ -6,8 +6,8 @@
     <title>YAP | Social Interaction & Messaging</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-sUrcw3di.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DDp2znD4.css">
+  <script type="module" crossorigin src="./assets/index-YncHlpH7.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Bblbr5vH.css">
 </head>
 <body class="dark-theme">
     <!-- Watch Together Modal -->
@@ -105,7 +105,12 @@
                 <aside class="chat-sidebar">
                     <div class="sidebar-header">
                         <img src="./assets/logo-C0gPYAgm.png" alt="Mini Logo" class="mini-logo">
-                        <div class="user-profile-mini">
+                        <div class="user-profile-mini" id="my-profile-mini">
+                            <div class="my-avatar" id="my-avatar-initials">?</div>
+                            <div class="my-profile-info">
+                                <span class="my-display-name" id="my-display-name">Loading...</span>
+                                <button class="change-name-btn" onclick="YAP.changeUsername()">✏️ Edit</button>
+                            </div>
                             <div class="status-indicator online"></div>
                         </div>
                     </div>
@@ -114,18 +119,9 @@
                         <input type="text" placeholder="Search friends or yaps...">
                     </div>
 
-                    <div class="chats-list">
-                        <!-- Mock Chat Entries -->
-                        <div class="chat-item active">
-                            <div class="chat-avatar">JD</div>
-                            <div class="chat-info">
-                                <span class="chat-name">Jayden</span>
-                                <span class="chat-preview">Did you see the new volume?</span>
-                            </div>
-                            <div class="chat-meta">
-                                <span class="chat-time">3m</span>
-                            </div>
-                        </div>
+                    <div class="online-label">🟢 Active Now</div>
+                    <div class="chats-list" id="online-users-list">
+                        <div class="empty-state">Waiting for others...</div>
                     </div>
                 </aside>
 
@@ -133,8 +129,8 @@
                 <section class="conversation-view">
                     <header class="chat-header">
                         <div class="header-main">
-                            <h3>Jayden</h3>
-                            <span class="header-status">online</span>
+                            <h3 id="chat-room-name">Global YAP Room</h3>
+                            <span class="header-status" id="online-count">Loading...</span>
                         </div>
                         <div class="header-actions">
                             <button class="action-icon" onclick="YAP.toggleGamesModal()" title="Arcade">🎮</button>
