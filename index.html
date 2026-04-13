@@ -29,7 +29,35 @@
         </div>
     </div>
 
+    <!-- Games Modal -->
+    <div id="games-modal" class="modal-overlay">
+        <div class="modal-content glass-panel" style="max-width: 400px;">
+            <header class="modal-header">
+                <h3>YAP Arcade</h3>
+                <button class="modal-close" onclick="YAP.toggleGamesModal()">×</button>
+            </header>
+            <div class="modal-body">
+                <div class="game-board-wrapper">
+                    <div id="game-status" class="game-status">Tic Tac Toe</div>
+                    <div id="ttt-board" class="ttt-grid">
+                        <div class="ttt-cell" data-index="0"></div>
+                        <div class="ttt-cell" data-index="1"></div>
+                        <div class="ttt-cell" data-index="2"></div>
+                        <div class="ttt-cell" data-index="3"></div>
+                        <div class="ttt-cell" data-index="4"></div>
+                        <div class="ttt-cell" data-index="5"></div>
+                        <div class="ttt-cell" data-index="6"></div>
+                        <div class="ttt-cell" data-index="7"></div>
+                        <div class="ttt-cell" data-index="8"></div>
+                    </div>
+                </div>
+                <button class="cta-button primary" onclick="YAP.resetGame()">New Match</button>
+            </div>
+        </div>
+    </div>
+
     <div id="app-root">
+
 
         <!-- The Entrance / Landing Page -->
         <main id="entrance-scene" class="scene active">
@@ -108,7 +136,9 @@
                             <span class="header-status">online</span>
                         </div>
                         <div class="header-actions">
+                            <button class="action-icon" onclick="YAP.toggleGamesModal()" title="Arcade">🎮</button>
                             <button class="action-icon" onclick="YAP.toggleWatchModal()" title="Watch Together">📺</button>
+
                             <button class="action-icon nudge-btn" onclick="YAP.nudge()" title="Nudge!">⚡</button>
                             <button class="action-icon">📞</button>
 

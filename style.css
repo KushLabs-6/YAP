@@ -601,5 +601,42 @@ body {
     overflow: hidden;
 }
 
+/* Tic Tac Toe Grid */
+.game-status {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    color: var(--accent);
+    font-family: var(--font-heading);
+}
+
+.ttt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 2rem;
+}
+
+.ttt-cell {
+    aspect-ratio: 1/1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 900;
+    font-family: var(--font-heading);
+    transition: var(--transition-smooth);
+}
+
+.ttt-cell:hover { background: rgba(255,255,255,0.1); }
+.ttt-cell.x { color: var(--primary); }
+.ttt-cell.o { color: var(--accent); }
+
+
 
 

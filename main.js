@@ -51,6 +51,11 @@ const YAP = {
             });
         });
 
+        // Game Cell Binding
+        document.querySelectorAll('.ttt-cell').forEach(cell => {
+            cell.addEventListener('click', (e) => this.handleCellClick(e));
+        });
+
         // Form Submission
         const authForm = document.getElementById('auth-form');
         authForm.addEventListener('submit', (e) => {
@@ -165,6 +170,93 @@ const YAP = {
         } else {
             this.showToast("Please enter a valid YouTube link.");
         }
+    },
+
+    // Mini Games Logic
+    toggleGamesModal() {
+        const modal = document.getElementById('games-modal');
+        if (modal) modal.classList.toggle('active');
+        if (modal.classList.contains('active')) this.resetGame();
+    },
+
+    gameActive: true,
+    currentPlayer: "X",
+    gameState: ["", "", "", "", "", "", "", "", ""],
+
+    handleCellClick(clickedCellEvent) {
+        const clickedCell = clickedCellEvent.target;
+        const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
+
+        if (this.gameState[clickedCellIndex] !== "" || !this.gameActive) return;
+
+        this.gameState[clickedCellIndex] = this.currentPlayer;
+        clickedCell.innerHTML = this.currentPlayer;
+        clickedCell.classList.add(this.currentPlayer.toLowerCase());
+        
+        this.playTick();
+        this.checkGameResult();
+    },
+
+    checkGameResult() {
+        const winConditions = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        let roundWon = false;
+        for (let i = 0; i < 8; i++) {
+            const winCondition = winConditions[i];
+            let a = this.gameState[winCondition[0]];
+            let b = this.gameState[winCondition[1]];
+            let c = this.gameState[winCondition[2]];
+            if (a === '' || b === '' || c === '') continue;
+            if (a === b && b === c) {
+                roundWon = true;
+                break;
+            }
+        }
+
+        if (roundWon) {
+            document.getElementById('game-status').innerHTML = `Winner: ${this.currentPlayer}!`;
+            this.gameActive = false;
+            this.showToast(`🏆 ${this.currentPlayer} Won the match!`);
+            return;
+        }
+
+        let roundDraw = !this.gameState.includes("");
+        if (roundDraw) {
+            document.getElementById('game-status').innerHTML = "It's a Draw!";
+            this.gameActive = false;
+            return;
+        }
+
+        this.currentPlayer = this.currentPlayer === "X" ? "O" : "X";
+        document.getElementById('game-status').innerHTML = `${this.currentPlayer}'s Turn`;
+    },
+
+    resetGame() {
+        this.gameActive = true;
+        this.currentPlayer = "X";
+        this.gameState = ["", "", "", "", "", "", "", "", ""];
+        document.getElementById('game-status').innerHTML = "X's Turn";
+        document.querySelectorAll('.ttt-cell').forEach(cell => {
+            cell.innerHTML = "";
+            cell.classList.remove('x', 'o');
+        });
+    },
+
+    playTick() {
+        if (!this.audioCtx) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.1);
     },
 
     addMessage(text, type) {
