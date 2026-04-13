@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>YAP | Social Interaction & Messaging</title>
-    <link rel="stylesheet" href="style.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="./assets-built/index-CaRGP4-B.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets-built/index-D5DnvdsY.css">
 </head>
 <body class="dark-theme">
     <!-- Watch Together Modal -->
@@ -65,7 +66,7 @@
             <div class="entrance-container">
                 <header class="entrance-header">
                     <div class="yap-logo-wrapper">
-                        <img src="logo.png" alt="YAP Logo" class="yap-logo-main">
+                        <img src="./assets-built/logo-C0gPYAgm.png" alt="YAP Logo" class="yap-logo-main">
                         <div class="logo-pulse"></div>
                     </div>
                     <h1 class="yap-title-text">YAP</h1>
@@ -80,12 +81,16 @@
 
                     <form id="auth-form" class="auth-form">
                         <div class="input-group">
+                            <label for="auth-displayname">Your Display Name</label>
+                            <input type="text" id="auth-displayname" placeholder="e.g. Your Name" autocomplete="nickname">
+                        </div>
+                        <div class="input-group">
                             <label for="auth-identifier">Phone or Email</label>
-                            <input type="text" id="auth-identifier" placeholder="e.g. +1 234 567 8900" required>
+                            <input type="text" id="auth-identifier" placeholder="e.g. test1@yap.com" required autocomplete="email">
                         </div>
                         <div class="input-group">
                             <label for="auth-password">Password</label>
-                            <input type="password" id="auth-password" placeholder="••••••••" required>
+                            <input type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password">
                         </div>
                         <button type="submit" class="cta-button primary">Enter YAP</button>
                     </form>
@@ -97,14 +102,36 @@
             </div>
         </main>
 
+        <!-- Username Edit Modal -->
+        <div id="username-modal" class="modal-overlay">
+            <div class="modal-content glass-panel" style="max-width:360px;">
+                <header class="modal-header">
+                    <h3>✏️ Edit Display Name</h3>
+                    <button class="modal-close" onclick="YAP.closeUsernameModal()">×</button>
+                </header>
+                <div class="modal-body">
+                    <div class="input-group">
+                        <label>Your Name</label>
+                        <input type="text" id="username-input" placeholder="Enter your name..." autocomplete="nickname">
+                    </div>
+                    <button class="cta-button primary" onclick="YAP.saveUsernameFromModal()">Save Name</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Chat UI -->
         <main id="chat-scene" class="scene">
             <div class="chat-layout glass-panel">
                 <!-- Sidebar -->
                 <aside class="chat-sidebar">
                     <div class="sidebar-header">
-                        <img src="logo.png" alt="Mini Logo" class="mini-logo">
-                        <div class="user-profile-mini">
+                        <img src="./assets-built/logo-C0gPYAgm.png" alt="Mini Logo" class="mini-logo">
+                        <div class="user-profile-mini" id="my-profile-mini">
+                            <div class="my-avatar" id="my-avatar-initials">?</div>
+                            <div class="my-profile-info">
+                                <span class="my-display-name" id="my-display-name">Loading...</span>
+                                <button class="change-name-btn" onclick="YAP.changeUsername()">✏️ Edit</button>
+                            </div>
                             <div class="status-indicator online"></div>
                         </div>
                     </div>
@@ -113,27 +140,26 @@
                         <input type="text" placeholder="Search friends or yaps...">
                     </div>
 
-                    <div class="chats-list">
-                        <!-- Mock Chat Entries -->
-                        <div class="chat-item active">
-                            <div class="chat-avatar">JD</div>
-                            <div class="chat-info">
-                                <span class="chat-name">Jayden</span>
-                                <span class="chat-preview">Did you see the new volume?</span>
-                            </div>
-                            <div class="chat-meta">
-                                <span class="chat-time">3m</span>
-                            </div>
-                        </div>
+                    <div class="online-label">🟢 Active Now</div>
+                    <div class="chats-list" id="online-users-list">
+                        <div class="empty-state">Waiting for others...</div>
                     </div>
                 </aside>
 
                 <!-- Conversation Section -->
                 <section class="conversation-view">
+
+                    <!-- Mobile-only profile bar -->
+                    <div class="mobile-profile-bar" id="mobile-profile-bar">
+                        <div class="mobile-avatar" id="mobile-avatar-initials">?</div>
+                        <span class="mobile-display-name" id="mobile-display-name">Loading...</span>
+                        <button class="mobile-edit-btn" onclick="YAP.changeUsername()">✏️ Edit Name</button>
+                    </div>
+
                     <header class="chat-header">
                         <div class="header-main">
-                            <h3>Jayden</h3>
-                            <span class="header-status">online</span>
+                            <h3 id="chat-room-name">Global YAP Room</h3>
+                            <span class="header-status" id="online-count">Loading...</span>
                         </div>
                         <div class="header-actions">
                             <button class="action-icon" onclick="YAP.toggleGamesModal()" title="Arcade">🎮</button>
@@ -168,6 +194,5 @@
         </main>
     </div>
 
-    <script src="yap.js" type="module"></script>
 </body>
 </html>
