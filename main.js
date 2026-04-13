@@ -13,6 +13,31 @@ const YAP = {
         console.log("🚀 YAP Initialized");
         this.bindEvents();
         this.checkAuth();
+        this.initSound();
+    },
+
+    initSound() {
+        // Create an audio context for high-tech synthesized alerts
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    },
+
+    playZing() {
+        if (!this.audioCtx) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, this.audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(110, this.audioCtx.currentTime + 0.3);
+        
+        gain.gain.setValueAtTime(0.5, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.3);
     },
 
     bindEvents() {
@@ -45,11 +70,28 @@ const YAP = {
 
     handleAuth() {
         const identifier = document.getElementById('auth-identifier').value;
+        const submitBtn = document.querySelector('#auth-form .cta-button');
+        
+        if (!identifier) {
+            this.showToast("Please enter a phone or email.");
+            return;
+        }
+
+        // Loading state
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
+        
         console.log(`🔑 Attempting auth for: ${identifier}`);
         
-        // Mock Auth Success
-        this.showToast(`Welcome to YAP, ${identifier}!`);
-        this.switchScene('chat-scene');
+        // Mock Auth Success Delay
+        setTimeout(() => {
+            this.showToast(`Welcome to YAP, ${identifier}!`);
+            this.switchScene('chat-scene');
+            
+            // Clean up button
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Enter YAP';
+        }, 1200);
     },
 
     switchScene(sceneId) {
@@ -61,16 +103,70 @@ const YAP = {
         }
     },
 
-    checkAuth() {
-        // Future Firebase integration
+        // Nudge Button
+        const nudgeBtn = document.querySelector('.nudge-btn');
+        if (nudgeBtn) {
+            nudgeBtn.addEventListener('click', () => this.nudge());
+        }
+
+        // Message Input Handling
+        const messageInput = document.querySelector('.chat-footer input');
+        const sendBtn = document.querySelector('.footer-send');
+        
+        if (sendBtn && messageInput) {
+            const sendMessage = () => {
+                const text = messageInput.value.trim();
+                if (text) {
+                    this.addMessage(text, 'outgoing');
+                    messageInput.value = '';
+                    
+                    // Mock reply delay
+                    setTimeout(() => {
+                        this.addMessage("That's deep. Let's YAP more about it.", 'incoming');
+                    }, 1500);
+                }
+            };
+
+            sendBtn.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        }
+    },
+
+    addMessage(text, type) {
+        const thread = document.getElementById('messages-thread');
+        if (!thread) return;
+
+        const msg = document.createElement('div');
+        msg.className = `msg-bubble ${type}`;
+        msg.textContent = text;
+        msg.style.opacity = '0';
+        msg.style.transform = 'translateY(20px)';
+        
+        thread.appendChild(msg);
+        
+        // Trigger entrance animation
+        requestAnimationFrame(() => {
+            msg.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+            msg.style.opacity = '1';
+            msg.style.transform = 'translateY(0)';
+        });
+
+        // Scroll to bottom
+        thread.scrollTop = thread.scrollHeight;
     },
 
     // Expressive Features
     nudge() {
         const body = document.body;
+        if (body.classList.contains('nudge-animation')) return; // Cooldown (mindful of spam)
+
         body.classList.add('nudge-animation');
-        
-        // Haptic feel via CSS and shaking
+        this.playZing();
+        this.showToast("⚡ NUDGE SENT!");
+
+        // Haptic feel
         if ('vibrate' in navigator) {
             navigator.vibrate([100, 50, 100]);
         }
