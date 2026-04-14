@@ -6,19 +6,20 @@
 // --- FIREBASE CONFIGURATION ---
 // REPLACE THE PLACEHOLDERS BELOW WITH YOUR ACTUAL FIREBASE KEYS
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "yap-demo.firebaseapp.com",
-    databaseURL: "https://your-project-id.firebaseio.com",
-    projectId: "your-project-id",
-    storageBucket: "your-project-id.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    projectId: "yap-app-b1280",
+    appId: "1:812038518003:web:1d307a649a6250a97a3386",
+    storageBucket: "yap-app-b1280.firebasestorage.app",
+    apiKey: "AIzaSyC-Go-fVtSjM0CqFX01biItr8WQUrGlV6s",
+    authDomain: "yap-app-b1280.firebaseapp.com",
+    messagingSenderId: "812038518003",
+    databaseURL: "https://yap-app-b1280-default-rtdb.firebaseio.com"
 };
 
 const YAP = {
     // state
     currentScene: 'entrance-scene',
     currentUser: null,
+    onlineUsers: {},
 
     // initialization
     init() {
@@ -27,11 +28,117 @@ const YAP = {
         this.checkAuth();
         this.initSound();
         this.initFirebase();
+        this.loadUsername();
     },
 
     checkAuth() {
         // Initial setup for checking existing sessions
         console.log("Session verified.");
+    },
+
+    loadUsername() {
+        // Username is stored locally so it persists between sessions
+        const saved = localStorage.getItem('yap_username');
+        if (saved) this.username = saved;
+    },
+
+    getUserLabel() {
+        return this.username || (this.currentUser ? this.currentUser.email.split('@')[0] : 'You');
+    },
+
+    changeUsername() {
+        const modal = document.getElementById('username-modal');
+        const input = document.getElementById('username-input');
+        if (modal && input) {
+            input.value = this.username || '';
+            modal.classList.add('active');
+            setTimeout(() => input.focus(), 100);
+        }
+    },
+
+    closeUsernameModal() {
+        const modal = document.getElementById('username-modal');
+        if (modal) modal.classList.remove('active');
+    },
+
+    saveUsernameFromModal() {
+        const input = document.getElementById('username-input');
+        const newName = input ? input.value.trim() : '';
+        if (newName) {
+            this.username = newName;
+            localStorage.setItem('yap_username', this.username);
+            this.updateMyProfileUI();
+            if (this.presenceRef) {
+                import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
+                    db.set(this.presenceRef, {
+                        email: this.currentUser.email,
+                        username: this.username,
+                        online: true,
+                        lastSeen: Date.now()
+                    });
+                });
+            }
+            this.showToast(`✅ Name set to "${this.username}"!`);
+            this.closeUsernameModal();
+        } else {
+            this.showToast('Please enter a name.');
+        }
+    },
+
+    updateMyProfileUI() {
+        const label = this.getUserLabel();
+        // Desktop sidebar
+        const nameEl = document.getElementById('my-display-name');
+        const avatarEl = document.getElementById('my-avatar-initials');
+        if (nameEl) nameEl.textContent = label;
+        if (avatarEl) avatarEl.textContent = label.charAt(0).toUpperCase();
+        // Mobile profile bar
+        const mobileNameEl = document.getElementById('mobile-display-name');
+        const mobileAvatarEl = document.getElementById('mobile-avatar-initials');
+        if (mobileNameEl) mobileNameEl.textContent = label;
+        if (mobileAvatarEl) mobileAvatarEl.textContent = label.charAt(0).toUpperCase();
+    },
+
+    broadcastPresence(db) {
+        const safeKey = this.currentUser.email.replace(/[.#$[\]]/g, '_');
+        this.presenceRef = db.ref(this.db, `presence/${safeKey}`);
+        db.set(this.presenceRef, {
+            email: this.currentUser.email,
+            username: this.getUserLabel(),
+            online: true,
+            lastSeen: Date.now()
+        });
+        // Listen to all online users
+        const presenceRoot = db.ref(this.db, 'presence');
+        db.onValue(presenceRoot, (snapshot) => {
+            const data = snapshot.val() || {};
+            this.onlineUsers = data;
+            this.renderOnlineUsers(data);
+        });
+    },
+
+    renderOnlineUsers(users) {
+        const list = document.getElementById('online-users-list');
+        const countEl = document.getElementById('online-count');
+        if (!list) return;
+        const entries = Object.values(users).filter(u => u.online);
+        if (countEl) countEl.textContent = `${entries.length} online`;
+        if (entries.length === 0) {
+            list.innerHTML = '<div class="empty-state">Waiting for others...</div>';
+            return;
+        }
+        list.innerHTML = entries.map(u => {
+            const initial = (u.username || u.email).charAt(0).toUpperCase();
+            const name = u.username || u.email.split('@')[0];
+            const isMe = u.email === this.currentUser?.email;
+            return `<div class="chat-item ${isMe ? 'active' : ''}">
+                <div class="chat-avatar">${initial}</div>
+                <div class="chat-info">
+                    <span class="chat-name">${name}${isMe ? ' (You)' : ''}</span>
+                    <span class="chat-preview">🟢 Online</span>
+                </div>
+            </div>`;
+        }).join('');
     },
 
     initFirebase() {
@@ -46,6 +153,7 @@ const YAP = {
                     this.tttRef = db.ref(this.db, 'games/ttt');
                     
                     this.listenToDb(db);
+                        if (this.currentUser) this.broadcastPresence(db);
                 } catch (e) {
                     console.warn("Firebase not configured. Running in Demo Mode.");
                 }
@@ -57,9 +165,10 @@ const YAP = {
         // Listen for new messages
         db.onChildAdded(this.dbRef, (snapshot) => {
             const msg = snapshot.val();
-            // Don't duplicate if it's our own local optimistic update
-            // (In this simple version, we'll just clear and redraw or filter)
-            this.renderMessage(msg.text, msg.sender === this.currentUser?.email ? 'outgoing' : 'incoming');
+            const isMe = msg.sender === this.currentUser?.email;
+            // Resolve sender label from online users presence or fallback
+            let senderLabel = msg.senderName || msg.sender?.split('@')[0] || 'Unknown';
+            this.renderMessage(msg.text, isMe ? 'outgoing' : 'incoming', isMe ? null : senderLabel);
         });
 
         // Listen for nudges
@@ -150,6 +259,7 @@ const YAP = {
                             db.push(this.dbRef, {
                                 text: text,
                                 sender: this.currentUser.email,
+                                senderName: this.getUserLabel(),
                                 time: Date.now()
                             });
                         });
@@ -219,9 +329,27 @@ const YAP = {
 
             if (user && password.toLowerCase() === user.pass.toLowerCase()) {
                 this.currentUser = { email: identifier, role: user.role };
-                this.showToast(`Welcome back, ${identifier}!`);
+                // Pick up display name typed at login, or recall from localStorage
+                const loginName = document.getElementById('auth-displayname')?.value?.trim();
+                if (loginName) {
+                    this.username = loginName;
+                    localStorage.setItem('yap_username', this.username);
+                } else {
+                    this.loadUsername();
+                }
+                this.updateMyProfileUI();
+                this.showToast(`Welcome, ${this.getUserLabel()}!`);
                 if (user.role === 'ADMIN') this.enterAdminMode();
                 else this.switchScene('chat-scene');
+                // Broadcast presence now that we have a user
+                if (this.db) {
+                    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
+                        this.broadcastPresence(db);
+                    });
+                } else {
+                    // Offline mode: just show yourself
+                    this.renderOnlineUsers({ me: { email: identifier, username: this.getUserLabel(), online: true }});
+                }
             } else {
                 this.showToast("Invalid Credentials. Check PROJECT_README.txt");
             }
@@ -390,17 +518,30 @@ const YAP = {
         osc.stop(this.audioCtx.currentTime + 0.1);
     },
 
-    renderMessage(text, type) {
+    renderMessage(text, type, senderLabel) {
         const thread = document.getElementById('messages-thread');
         if (!thread) return;
 
-        // Check if message already exists (simple deduplication by text/time within 1s)
+        // Dedup outgoing
         const lastMsg = thread.lastElementChild;
-        if (lastMsg && lastMsg.textContent === text && type === 'outgoing') return;
+        if (lastMsg && lastMsg.dataset.text === text && type === 'outgoing') return;
 
         const msg = document.createElement('div');
         msg.className = `msg-bubble ${type}`;
-        msg.textContent = text;
+        msg.dataset.text = text;
+
+        // Show sender name on incoming messages
+        if (type === 'incoming' && senderLabel) {
+            const nameTag = document.createElement('span');
+            nameTag.className = 'msg-sender-name';
+            nameTag.textContent = senderLabel;
+            msg.appendChild(nameTag);
+        }
+
+        const textNode = document.createElement('span');
+        textNode.className = 'msg-text';
+        textNode.textContent = text;
+        msg.appendChild(textNode);
         
         // Add timestamp
         const time = document.createElement('span');
