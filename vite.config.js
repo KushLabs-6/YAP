@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/YAP/',
+  base: './', // Generates relative paths so it works seamlessly on LocalTunnel and GitHub Pages
 })

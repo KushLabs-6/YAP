@@ -3,8 +3,6 @@
  * "More than just a chat."
  */
 
-// --- FIREBASE CONFIGURATION ---
-// REPLACE THE PLACEHOLDERS BELOW WITH YOUR ACTUAL FIREBASE KEYS
 const firebaseConfig = {
     projectId: "yap-app-b1280",
     appId: "1:812038518003:web:1d307a649a6250a97a3386",
@@ -16,604 +14,432 @@ const firebaseConfig = {
 };
 
 const YAP = {
-    // state
     currentScene: 'entrance-scene',
     currentUser: null,
     onlineUsers: {},
+    authMode: 'login', // login | signup
+    currentRoom: 'global', // 'global' or 'private_user1_user2'
+    db: null,
+    messagesListener: null,
 
-    // initialization
     init() {
-        console.log("🚀 YAP Initialized");
+        console.log("🚀 YAP Advanced Initialized");
         this.bindEvents();
-        this.checkAuth();
         this.initSound();
         this.initFirebase();
-        this.loadUsername();
-    },
-
-    checkAuth() {
-        // Initial setup for checking existing sessions
-        console.log("Session verified.");
-    },
-
-    loadUsername() {
-        // Username is stored locally so it persists between sessions
-        const saved = localStorage.getItem('yap_username');
-        if (saved) this.username = saved;
-    },
-
-    getUserLabel() {
-        return this.username || (this.currentUser ? this.currentUser.email.split('@')[0] : 'You');
-    },
-
-    changeUsername() {
-        const modal = document.getElementById('username-modal');
-        const input = document.getElementById('username-input');
-        if (modal && input) {
-            input.value = this.username || '';
-            modal.classList.add('active');
-            setTimeout(() => input.focus(), 100);
-        }
-    },
-
-    closeUsernameModal() {
-        const modal = document.getElementById('username-modal');
-        if (modal) modal.classList.remove('active');
-    },
-
-    saveUsernameFromModal() {
-        const input = document.getElementById('username-input');
-        const newName = input ? input.value.trim() : '';
-        if (newName) {
-            this.username = newName;
-            localStorage.setItem('yap_username', this.username);
-            this.updateMyProfileUI();
-            if (this.presenceRef) {
-                import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
-                    db.set(this.presenceRef, {
-                        email: this.currentUser.email,
-                        username: this.username,
-                        online: true,
-                        lastSeen: Date.now()
-                    });
-                });
-            }
-            this.showToast(`✅ Name set to "${this.username}"!`);
-            this.closeUsernameModal();
-        } else {
-            this.showToast('Please enter a name.');
-        }
-    },
-
-    updateMyProfileUI() {
-        const label = this.getUserLabel();
-        // Desktop sidebar
-        const nameEl = document.getElementById('my-display-name');
-        const avatarEl = document.getElementById('my-avatar-initials');
-        if (nameEl) nameEl.textContent = label;
-        if (avatarEl) avatarEl.textContent = label.charAt(0).toUpperCase();
-        // Mobile profile bar
-        const mobileNameEl = document.getElementById('mobile-display-name');
-        const mobileAvatarEl = document.getElementById('mobile-avatar-initials');
-        if (mobileNameEl) mobileNameEl.textContent = label;
-        if (mobileAvatarEl) mobileAvatarEl.textContent = label.charAt(0).toUpperCase();
-    },
-
-    broadcastPresence(db) {
-        const safeKey = this.currentUser.email.replace(/[.#$[\]]/g, '_');
-        this.presenceRef = db.ref(this.db, `presence/${safeKey}`);
-        db.set(this.presenceRef, {
-            email: this.currentUser.email,
-            username: this.getUserLabel(),
-            online: true,
-            lastSeen: Date.now()
-        });
-        // Listen to all online users
-        const presenceRoot = db.ref(this.db, 'presence');
-        db.onValue(presenceRoot, (snapshot) => {
-            const data = snapshot.val() || {};
-            this.onlineUsers = data;
-            this.renderOnlineUsers(data);
-        });
-    },
-
-    renderOnlineUsers(users) {
-        const list = document.getElementById('online-users-list');
-        const countEl = document.getElementById('online-count');
-        if (!list) return;
-        const entries = Object.values(users).filter(u => u.online);
-        if (countEl) countEl.textContent = `${entries.length} online`;
-        if (entries.length === 0) {
-            list.innerHTML = '<div class="empty-state">Waiting for others...</div>';
-            return;
-        }
-        list.innerHTML = entries.map(u => {
-            const initial = (u.username || u.email).charAt(0).toUpperCase();
-            const name = u.username || u.email.split('@')[0];
-            const isMe = u.email === this.currentUser?.email;
-            return `<div class="chat-item ${isMe ? 'active' : ''}">
-                <div class="chat-avatar">${initial}</div>
-                <div class="chat-info">
-                    <span class="chat-name">${name}${isMe ? ' (You)' : ''}</span>
-                    <span class="chat-preview">🟢 Online</span>
-                </div>
-            </div>`;
-        }).join('');
-    },
-
-    initFirebase() {
-        // We use the dynamic import to keep it lightweight
-        import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js').then(app => {
-            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
-                try {
-                    this.app = app.initializeApp(firebaseConfig);
-                    this.db = db.getDatabase(this.app);
-                    this.dbRef = db.ref(this.db, 'yaps');
-                    this.nudgeRef = db.ref(this.db, 'nudges');
-                    this.tttRef = db.ref(this.db, 'games/ttt');
-                    
-                    this.listenToDb(db);
-                        if (this.currentUser) this.broadcastPresence(db);
-                } catch (e) {
-                    console.warn("Firebase not configured. Running in Demo Mode.");
-                }
-            });
-        });
-    },
-
-    listenToDb(db) {
-        // Listen for new messages
-        db.onChildAdded(this.dbRef, (snapshot) => {
-            const msg = snapshot.val();
-            const isMe = msg.sender === this.currentUser?.email;
-            // Resolve sender label from online users presence or fallback
-            let senderLabel = msg.senderName || msg.sender?.split('@')[0] || 'Unknown';
-            this.renderMessage(msg.text, isMe ? 'outgoing' : 'incoming', isMe ? null : senderLabel);
-        });
-
-        // Listen for nudges
-        db.onValue(this.nudgeRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.sender !== this.currentUser?.email && (Date.now() - data.time < 2000)) {
-                this.receiveNudge();
-            }
-        });
-
-        // Listen for Tic Tac Toe board updates
-        db.onValue(this.tttRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                this.gameState = data.board;
-                this.currentPlayer = data.nextPlayer;
-                this.gameActive = data.active;
-                this.renderBoard();
-            }
-        });
-    },
-
-    initSound() {
-        // Create an audio context for high-tech synthesized alerts
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    },
-
-    playZing() {
-        if (!this.audioCtx) return;
-        const osc = this.audioCtx.createOscillator();
-        const gain = this.audioCtx.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, this.audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(110, this.audioCtx.currentTime + 0.3);
-        
-        gain.gain.setValueAtTime(0.5, this.audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.3);
-        
-        osc.connect(gain);
-        gain.connect(this.audioCtx.destination);
-        
-        osc.start();
-        osc.stop(this.audioCtx.currentTime + 0.3);
     },
 
     bindEvents() {
-        // Tab Switching Logic
+        // Auth Tabs
         const tabs = document.querySelectorAll('.auth-tab');
         tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
+            tab.addEventListener('click', (e) => {
                 tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                this.updateAuthForm(tab.dataset.tab);
+                e.target.classList.add('active');
+                this.authMode = e.target.dataset.tab;
+                
+                const nameGroup = document.getElementById('auth-displayname-group');
+                const submitBtn = document.querySelector('#auth-form .cta-button');
+                
+                if (this.authMode === 'signup') {
+                    if(nameGroup) nameGroup.style.display = 'block';
+                    submitBtn.textContent = 'Create Account';
+                } else {
+                    if(nameGroup) nameGroup.style.display = 'none';
+                    submitBtn.textContent = 'Enter YAP';
+                }
             });
         });
 
-        // Game Cell Binding
-        document.querySelectorAll('.ttt-cell').forEach(cell => {
-            cell.addEventListener('click', (e) => this.handleCellClick(e));
-        });
-
-        // Form Submission
+        // Auth Form
         const authForm = document.getElementById('auth-form');
-        authForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleAuth();
-        });
+        if (authForm) {
+            authForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleAuth();
+            });
+        }
 
-        // --- Chat Scene Bindings ---
-        // Nudge Button
+        // Nudge
         const nudgeBtn = document.querySelector('.nudge-btn');
         if (nudgeBtn) {
             nudgeBtn.addEventListener('click', () => this.nudge());
         }
 
-        // Message Input Handling
+        // Message Sending
         const messageInput = document.querySelector('.chat-footer input[type="text"]');
         const sendBtn = document.querySelector('.footer-send');
-        
         if (sendBtn && messageInput) {
-            const sendMessage = () => {
+            const send = () => {
                 const text = messageInput.value.trim();
-                if (text) {
-                    // Send to Firebase if connected
-                    if (this.db) {
-                        import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
-                            db.push(this.dbRef, {
-                                text: text,
-                                sender: this.currentUser.email,
-                                senderName: this.getUserLabel(),
-                                time: Date.now()
-                            });
+                if (text && this.db) {
+                    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
+                        const ref = db.ref(this.db, `messages/${this.currentRoom}`);
+                        db.push(ref, {
+                            text: text,
+                            sender: this.currentUser.email,
+                            senderName: this.currentUser.username,
+                            time: Date.now()
                         });
-                    } else {
-                        this.renderMessage(text, 'outgoing');
-                    }
+                    });
                     messageInput.value = '';
                 }
             };
-
-            sendBtn.addEventListener('click', sendMessage);
+            sendBtn.addEventListener('click', send);
             messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendMessage();
-            });
-        }
-
-        // Media Input Handling
-        const mediaInput = document.getElementById('media-input');
-        if (mediaInput) {
-            mediaInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (re) => {
-                        this.addMediaMessage(re.target.result, 'outgoing');
-                    };
-                    reader.readAsDataURL(file);
-                }
+                if (e.key === 'Enter') send();
             });
         }
     },
 
-    updateAuthForm(mode) {
-        const submitBtn = document.querySelector('#auth-form .cta-button');
-        if (mode === 'signup') {
-            submitBtn.textContent = 'Create YAP Account';
-        } else {
-            submitBtn.textContent = 'Enter YAP';
+    initSound() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.audioCtx = new AudioContext();
+            
+            // Pre-warm audio on fist interaction
+            document.body.addEventListener('click', () => {
+                if(this.audioCtx.state === 'suspended') {
+                    this.audioCtx.resume();
+                }
+            }, { once: true });
+        } catch(e) {
+            console.log('Web Audio API not supported');
+        }
+    },
+
+    initFirebase() {
+        import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js').then((app) => {
+            const firebaseApp = app.initializeApp(firebaseConfig);
+            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then((db) => {
+                this.dbConfig = db;
+                this.db = db.getDatabase(firebaseApp);
+                
+                // Set up global nudge listener
+                this.nudgeRef = db.ref(this.db, 'nudges');
+                db.onChildAdded(this.nudgeRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data && this.currentUser && data.sender !== this.currentUser.email) {
+                        // Nudge rules: If it's a global nudge, only admins could send it, but we already validated that before push
+                        // However, let's check if the nudge was meant for the global room or private. For now, global nudges everybody.
+                        if(data.room === 'global' && this.currentRoom === 'global') {
+                            this.receiveNudge();
+                        } else if (data.room === this.currentRoom) {
+                            this.receiveNudge();
+                        }
+                    }
+                });
+
+                this.checkLocalAuth();
+            });
+        });
+    },
+
+    safeId(email) {
+        return email.replace(/[.#$\[\]]/g, "_");
+    },
+    
+    checkLocalAuth() {
+        const token = localStorage.getItem('yap_token');
+        if (token) {
+            const [email, pass] = token.split("::");
+            if (email && pass) {
+                // Background verify
+                this.dbConfig.get(this.dbConfig.ref(this.db, `registered_users/${this.safeId(email)}`)).then((snap) => {
+                    const user = snap.val();
+                    if(user && user.password === pass) {
+                        this.currentUser = { email: user.email, username: user.username, role: user.role, safeId: this.safeId(user.email) };
+                        this.finishLogin();
+                    }
+                });
+            }
         }
     },
 
     handleAuth() {
-        let identifier = document.getElementById('auth-identifier').value.trim().toLowerCase();
+        const identifier = document.getElementById('auth-identifier').value.trim().toLowerCase();
         let password = document.getElementById('auth-password').value.trim();
+        const displayname = document.getElementById('auth-displayname')?.value?.trim();
         const submitBtn = document.querySelector('#auth-form .cta-button');
-        
-        if (!identifier || !password) {
-            this.showToast("Please enter your credentials.");
-            return;
-        }
 
-        // Loading state
+        if (!identifier || !password) return;
+
         submitBtn.disabled = true;
         submitBtn.textContent = 'Verifying...';
-        
-        console.log(`🔑 Attempting auth for: ${identifier}`);
-        
-        // Mock Auth Logic (Expanded with Test Accounts)
-        setTimeout(() => {
-            const validAccounts = {
-                'kingadmin@yap.com': { pass: 'promo123456', role: 'ADMIN' },
-                'test1@yap.com': { pass: 'yap2026', role: 'USER' },
-                'test2@yap.com': { pass: 'yap2026', role: 'USER' }
-            };
 
-            const user = validAccounts[identifier];
+        const safeId = this.safeId(identifier);
 
-            if (user && password.toLowerCase() === user.pass.toLowerCase()) {
-                this.currentUser = { email: identifier, role: user.role };
-                // Pick up display name typed at login, or recall from localStorage
-                const loginName = document.getElementById('auth-displayname')?.value?.trim();
-                if (loginName) {
-                    this.username = loginName;
-                    localStorage.setItem('yap_username', this.username);
+        if (this.authMode === 'login') {
+            this.dbConfig.get(this.dbConfig.ref(this.db, `registered_users/${safeId}`)).then((snap) => {
+                const user = snap.val();
+                if (user && user.password === password) {
+                    this.currentUser = { email: user.email, username: user.username, role: user.role, safeId: safeId };
+                    localStorage.setItem('yap_token', `${user.email}::${user.password}`);
+                    this.finishLogin();
                 } else {
-                    this.loadUsername();
+                    this.showToast('Invalid Email or Password.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Enter YAP';
                 }
-                this.updateMyProfileUI();
-                this.showToast(`Welcome, ${this.getUserLabel()}!`);
-                if (user.role === 'ADMIN') this.enterAdminMode();
-                else this.switchScene('chat-scene');
-                // Broadcast presence now that we have a user
-                if (this.db) {
-                    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
-                        this.broadcastPresence(db);
-                    });
-                } else {
-                    // Offline mode: just show yourself
-                    this.renderOnlineUsers({ me: { email: identifier, username: this.getUserLabel(), online: true }});
-                }
-            } else {
-                this.showToast("Invalid Credentials. Check PROJECT_README.txt");
+            });
+        } else {
+            // Signup logic
+            if(!displayname) {
+                this.showToast('Please enter a Unique Username.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account';
+                return;
             }
             
-            // Clean up button
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Enter YAP';
-        }, 1200);
+            const lowerName = displayname.toLowerCase();
+            this.dbConfig.get(this.dbConfig.ref(this.db, `usernames/${lowerName}`)).then((snap) => {
+                if (snap.exists() && snap.val() !== safeId) {
+                    this.showToast('Username already taken!');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create Account';
+                } else {
+                    // Check if email already registered
+                    this.dbConfig.get(this.dbConfig.ref(this.db, `registered_users/${safeId}`)).then((userSnap) => {
+                         if (userSnap.exists()) {
+                             this.showToast('This email is already registered. Please Login.');
+                             submitBtn.disabled = false;
+                             submitBtn.textContent = 'Create Account';
+                         } else {
+                             // Create user
+                             const role = identifier === 'kingadmin@yap.com' ? 'ADMIN' : 'USER';
+                             const newUser = { email: identifier, password: password, username: displayname, role: role };
+                             
+                             this.dbConfig.set(this.dbConfig.ref(this.db, `registered_users/${safeId}`), newUser);
+                             this.dbConfig.set(this.dbConfig.ref(this.db, `usernames/${lowerName}`), safeId);
+                             
+                             this.currentUser = { email: identifier, username: displayname, role: role, safeId: safeId };
+                             localStorage.setItem('yap_token', `${identifier}::${password}`);
+                             this.finishLogin();
+                         }
+                    });
+                }
+            });
+        }
     },
 
-    enterAdminMode() {
+    finishLogin() {
+        this.updateProfileUI();
         this.switchScene('chat-scene');
-        document.body.classList.add('admin-mode');
-        this.showToast("🛠️ Admin Controls Enabled");
+        this.broadcastPresence();
+        this.switchRoom('global', 'Global YAP Room');
+    },
+
+    updateProfileUI() {
+        const label = this.currentUser.username;
+        const nameEl = document.getElementById('my-display-name');
+        const avatarEl = document.getElementById('my-avatar-initials');
+        if (nameEl) nameEl.textContent = label;
+        if (avatarEl) avatarEl.textContent = label.charAt(0).toUpperCase();
+
+        const titleText = document.querySelector('.chat-header-titles h2');
+        if(titleText) titleText.textContent = this.currentRoom === 'global' ? 'Global YAP Room' : 'Private YAP';
+    },
+
+    broadcastPresence() {
+        if(!this.db || !this.currentUser) return;
+        this.presenceRef = this.dbConfig.ref(this.db, `presence/${this.currentUser.safeId}`);
+        this.dbConfig.onDisconnect(this.presenceRef).remove();
+        this.dbConfig.set(this.presenceRef, {
+            email: this.currentUser.email,
+            username: this.currentUser.username,
+            safeId: this.currentUser.safeId,
+            online: true,
+            lastSeen: Date.now()
+        });
+
+        // Listen for all users
+        this.dbConfig.onValue(this.dbConfig.ref(this.db, 'presence'), (snap) => {
+            this.onlineUsers = snap.val() || {};
+            this.renderOnlineUsers();
+        });
+    },
+
+    renderOnlineUsers() {
+        const dList = document.getElementById('active-users-list');
+        const mList = document.getElementById('mobile-active-users-list');
+        const deskCount = document.getElementById('online-count');
+        const mobCount = document.getElementById('mobile-directory-count');
         
-        // Add Admin Badge to Header
-        const header = document.querySelector('.header-main');
-        if (header && !document.querySelector('.admin-badge')) {
-            const badge = document.createElement('span');
-            badge.className = 'admin-badge';
-            badge.textContent = 'ADMIN';
-            header.appendChild(badge);
+        if (dList) dList.innerHTML = '';
+        if (mList) mList.innerHTML = '';
+
+        let count = 0;
+        Object.keys(this.onlineUsers).forEach(key => {
+            const user = this.onlineUsers[key];
+            if (!user.online) return;
+            count++;
+            
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div class="user-avatar">${user.username.charAt(0).toUpperCase()}</div>
+                <div class="user-info">
+                    <span class="user-name">${user.username}</span>
+                    <span class="user-status">Online</span>
+                </div>
+            `;
+            
+            // Allow starting private chat
+            if(user.safeId !== this.currentUser.safeId) {
+                 li.onclick = () => this.startPrivateChat(user);
+            } else {
+                 li.style.cursor = 'default';
+                 li.querySelector('.user-name').textContent = user.username + " (You)";
+            }
+
+            if(dList) dList.appendChild(li.cloneNode(true));
+            if(mList) mList.appendChild(li); // actual element goes to one, clone to other. Fix:
+        });
+        
+        // Fix for attaching event listeners to both desktop and mobile lists
+        [dList, mList].forEach(list => {
+             if(list) {
+                 list.innerHTML = ''; // reset again
+                 Object.keys(this.onlineUsers).forEach(key => {
+                     const user = this.onlineUsers[key];
+                     if (!user.online) return;
+                     const li = document.createElement('li');
+                     li.innerHTML = `
+                        <div class="user-avatar">${user.username.charAt(0).toUpperCase()}</div>
+                        <div class="user-info">
+                            <span class="user-name">${user.username} ${user.safeId === this.currentUser.safeId ? '(You)' : ''}</span>
+                            <span class="user-status">Online</span>
+                        </div>
+                    `;
+                     if(user.safeId !== this.currentUser.safeId) {
+                         li.onclick = () => {
+                             this.toggleMobileDirectory(false); // close modal if open
+                             this.startPrivateChat(user);
+                         };
+                     } else {
+                         li.style.cursor = 'default';
+                     }
+                     list.appendChild(li);
+                 });
+             }
+        });
+
+        if (deskCount) deskCount.textContent = count;
+        if (mobCount) mobCount.textContent = `🟢 ${count} Online`;
+    },
+
+    startPrivateChat(targetUser) {
+        // Create unique room id by sorting safeIds
+        const ids = [this.currentUser.safeId, targetUser.safeId].sort();
+        const roomId = `private_${ids[0]}_${ids[1]}`;
+        const roomName = `Chat with ${targetUser.username}`;
+        this.switchRoom(roomId, roomName);
+        this.updatePrivateChatsList(targetUser);
+    },
+
+    updatePrivateChatsList(targetUser) {
+         // Optionally maintain a persistent list of private chats in Firebase for the user
+         // For now, temporarily add it to UI
+         const dChat = document.getElementById('private-chats-list');
+         const mChat = document.getElementById('mobile-private-chats-list');
+         const removeEmpty = (l) => { if(l.querySelector('.empty-state-list')) l.innerHTML = ''; }
+         if(dChat) removeEmpty(dChat);
+         if(mChat) removeEmpty(mChat);
+         
+         const liHTML = `
+            <div class="user-avatar" style="background:var(--yap-accent)">${targetUser.username.charAt(0).toUpperCase()}</div>
+            <div class="user-info">
+                <span class="user-name">${targetUser.username}</span>
+            </div>
+         `;
+         [dChat, mChat].forEach(list => {
+             if(list) {
+                 // Prevent duplicates in UI
+                 let exists = false;
+                 list.querySelectorAll('.user-name').forEach(n => { if(n.textContent === targetUser.username) exists = true; });
+                 if(!exists) {
+                     const li = document.createElement('li');
+                     li.innerHTML = liHTML;
+                     li.onclick = () => {
+                          this.toggleMobileDirectory(false);
+                          this.startPrivateChat(targetUser);
+                     };
+                     list.appendChild(li);
+                 }
+             }
+         });
+    },
+
+    switchRoom(roomId, roomName) {
+        this.currentRoom = roomId;
+        const deskHeader = document.querySelector('.chat-header-titles h2');
+        const mobHeader = document.getElementById('mobile-room-name');
+        if(deskHeader) deskHeader.textContent = roomName;
+        if(mobHeader) mobHeader.textContent = roomName;
+
+        const thread = document.getElementById('messages-thread');
+        if(thread) thread.innerHTML = '';
+
+        if(this.messagesListener && this.dbListenerRef) {
+            this.dbConfig.off(this.dbListenerRef, 'child_added', this.messagesListener);
+        }
+
+        this.dbListenerRef = this.dbConfig.ref(this.db, `messages/${this.currentRoom}`);
+        // Fetch last 50
+        const query = this.dbConfig.query(this.dbListenerRef, this.dbConfig.limitToLast(50));
+        
+        let initialLoad = true;
+        this.dbConfig.get(query).then((snap) => {
+            const msgs = snap.val();
+            if(msgs) {
+                Object.values(msgs).forEach(msg => {
+                    const type = msg.sender === this.currentUser.email ? 'outgoing' : 'incoming';
+                    this.renderMessage(msg.text, type, msg.senderName, msg.time);
+                });
+            }
+            // Listen for new
+            this.messagesListener = this.dbConfig.onChildAdded(query, (childSnap) => {
+                if(!initialLoad) {
+                    const msg = childSnap.val();
+                    const type = msg.sender === this.currentUser.email ? 'outgoing' : 'incoming';
+                    this.renderMessage(msg.text, type, msg.senderName, msg.time);
+                    if(type === 'incoming') this.playTick();
+                }
+            });
+            initialLoad = false;
+        });
+    },
+
+    toggleMobileDirectory(forceClose = false) {
+        const modal = document.getElementById('mobile-directory-modal');
+        if(!modal) return;
+        if(forceClose) {
+            modal.style.display = 'none';
+        } else {
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
         }
     },
 
     switchScene(sceneId) {
-        document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
-        const nextScene = document.getElementById(sceneId);
-        if (nextScene) {
-            nextScene.classList.add('active');
-            this.currentScene = sceneId;
-        }
-    },
-
-    toggleWatchModal() {
-        const modal = document.getElementById('watch-modal');
-        if (modal) modal.classList.toggle('active');
-    },
-
-    startWatchSession() {
-        const link = document.getElementById('yt-link').value;
-        const container = document.getElementById('yt-player-container');
-        
-        if (link.includes('youtube.com') || link.includes('youtu.be')) {
-            const videoId = link.split('v=')[1] || link.split('/').pop();
-            container.innerHTML = `<iframe width="100%" height="280" src="https://www.youtube.com/embed/${videoId.split('&')[0]}?autoplay=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border-radius:12px;"></iframe>`;
-            this.showToast("🎬 Session started! Syncing with others...");
-        } else {
-            this.showToast("Please enter a valid YouTube link.");
-        }
-    },
-
-    // Mini Games Logic
-    toggleGamesModal() {
-        const modal = document.getElementById('games-modal');
-        if (modal) modal.classList.toggle('active');
-        if (modal.classList.contains('active')) this.resetGame();
-    },
-
-    gameActive: true,
-    currentPlayer: "X",
-    gameState: ["", "", "", "", "", "", "", "", ""],
-
-    handleCellClick(clickedCellEvent) {
-        const clickedCell = clickedCellEvent.target;
-        const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
-
-        if (this.gameState[clickedCellIndex] !== "" || !this.gameActive) return;
-
-        // Local update
-        this.gameState[clickedCellIndex] = this.currentPlayer;
-        const nextPlayer = this.currentPlayer === "X" ? "O" : "X";
-        
-        // Push board to Firebase
-        if (this.db) {
-            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
-                db.set(this.tttRef, {
-                    board: this.gameState,
-                    nextPlayer: nextPlayer,
-                    active: true,
-                    lastMovedBy: this.currentUser.email
-                });
-            });
-        }
-
-        this.playTick();
-        this.checkGameResult();
-    },
-
-    renderBoard() {
-        const cells = document.querySelectorAll('.ttt-cell');
-        this.gameState.forEach((val, i) => {
-            cells[i].innerHTML = val;
-            cells[i].classList.remove('x', 'o');
-            if (val) cells[i].classList.add(val.toLowerCase());
-        });
-        document.getElementById('game-status').innerHTML = this.gameActive ? `${this.currentPlayer}'s Turn` : "Game Over";
-    },
-
-    checkGameResult() {
-        const winConditions = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8],
-            [0, 3, 6], [1, 4, 7], [2, 5, 8],
-            [0, 4, 8], [2, 4, 6]
-        ];
-
-        let roundWon = false;
-        for (let i = 0; i < 8; i++) {
-            const winCondition = winConditions[i];
-            let a = this.gameState[winCondition[0]];
-            let b = this.gameState[winCondition[1]];
-            let c = this.gameState[winCondition[2]];
-            if (a === '' || b === '' || c === '') continue;
-            if (a === b && b === c) {
-                roundWon = true;
-                break;
-            }
-        }
-
-        if (roundWon) {
-            document.getElementById('game-status').innerHTML = `Winner: ${this.currentPlayer}!`;
-            this.gameActive = false;
-            this.showToast(`🏆 ${this.currentPlayer} Won the match!`);
-            return;
-        }
-
-        let roundDraw = !this.gameState.includes("");
-        if (roundDraw) {
-            document.getElementById('game-status').innerHTML = "It's a Draw!";
-            this.gameActive = false;
-            return;
-        }
-
-        this.currentPlayer = this.currentPlayer === "X" ? "O" : "X";
-        document.getElementById('game-status').innerHTML = `${this.currentPlayer}'s Turn`;
-    },
-
-    resetGame() {
-        this.gameActive = true;
-        this.currentPlayer = "X";
-        this.gameState = ["", "", "", "", "", "", "", "", ""];
-        
-        if (this.db) {
-            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
-                db.set(this.tttRef, {
-                    board: this.gameState,
-                    nextPlayer: "X",
-                    active: true
-                });
-            });
-        } else {
-            this.renderBoard();
-        }
-    },
-
-    playTick() {
-        if (!this.audioCtx) return;
-        const osc = this.audioCtx.createOscillator();
-        const gain = this.audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(440, this.audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.1);
-        osc.connect(gain);
-        gain.connect(this.audioCtx.destination);
-        osc.start();
-        osc.stop(this.audioCtx.currentTime + 0.1);
-    },
-
-    renderMessage(text, type, senderLabel) {
-        const thread = document.getElementById('messages-thread');
-        if (!thread) return;
-
-        // Dedup outgoing
-        const lastMsg = thread.lastElementChild;
-        if (lastMsg && lastMsg.dataset.text === text && type === 'outgoing') return;
-
-        const msg = document.createElement('div');
-        msg.className = `msg-bubble ${type}`;
-        msg.dataset.text = text;
-
-        // Show sender name on incoming messages
-        if (type === 'incoming' && senderLabel) {
-            const nameTag = document.createElement('span');
-            nameTag.className = 'msg-sender-name';
-            nameTag.textContent = senderLabel;
-            msg.appendChild(nameTag);
-        }
-
-        const textNode = document.createElement('span');
-        textNode.className = 'msg-text';
-        textNode.textContent = text;
-        msg.appendChild(textNode);
-        
-        // Add timestamp
-        const time = document.createElement('span');
-        time.className = 'msg-time';
-        time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        msg.appendChild(time);
-
-        this.animateIn(msg, thread);
-    },
-
-    addMediaMessage(src, type) {
-        const thread = document.getElementById('messages-thread');
-        if (!thread) return;
-
-        const msg = document.createElement('div');
-        msg.className = `msg-bubble media-bubble ${type}`;
-        
-        const img = document.createElement('img');
-        img.src = src;
-        img.className = 'chat-sent-img';
-        
-        msg.appendChild(img);
-        this.animateIn(msg, thread);
-    },
-
-    animateIn(el, container) {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(20px)';
-        
-        container.appendChild(el);
-        
-        // Trigger entrance animation
-        requestAnimationFrame(() => {
-            el.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-            el.style.opacity = '1';
-            el.style.transform = 'translateY(0)';
-        });
-
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
-    },
-
-    // Expressive Features
-    receiveNudge() {
-        // Triggered by Firebase when someone else nudges us
-        const body = document.body;
-        if (body.classList.contains('nudge-animation')) return;
-
-        body.classList.add('nudge-animation');
-        this.playZing();
-        this.showToast("⚡ YOU GOT NUDGED!");
-
-        if ('vibrate' in navigator) {
-            navigator.vibrate([200, 100, 200]);
-        }
-        
-        setTimeout(() => {
-            body.classList.remove('nudge-animation');
-        }, 500);
+        document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+        document.getElementById(sceneId).classList.add('active');
+        this.currentScene = sceneId;
     },
 
     nudge() {
         const body = document.body;
         if (body.classList.contains('nudge-animation')) return; 
 
-        // Send to Firebase immediately
+        if (this.currentRoom === 'global' && this.currentUser.role !== 'ADMIN') {
+            this.showToast("Only Admins can nudge everyone in the Global Room!");
+            return;
+        }
+
         if (this.db) {
-            import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js').then(db => {
-                db.set(this.nudgeRef, {
-                    sender: this.currentUser.email,
-                    time: Date.now()
-                });
+            const nudgeId = Date.now().toString();
+            this.dbConfig.set(this.dbConfig.ref(this.db, `nudges/${nudgeId}`), {
+                sender: this.currentUser.email,
+                room: this.currentRoom,
+                time: Date.now()
             });
         }
 
@@ -621,13 +447,86 @@ const YAP = {
         this.playZing();
         this.showToast("⚡ NUDGE SENT!");
 
-        if ('vibrate' in navigator) {
-            navigator.vibrate([100, 50, 100]);
+        if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
+        setTimeout(() => body.classList.remove('nudge-animation'), 500);
+    },
+
+    receiveNudge() {
+        const body = document.body;
+        if (body.classList.contains('nudge-animation')) return;
+        body.classList.add('nudge-animation');
+        this.playZing();
+        this.showToast("⚡ YOU GOT NUDGED!");
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+        setTimeout(() => body.classList.remove('nudge-animation'), 500);
+    },
+
+    playTick() {
+        if (!this.audioCtx) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.frequency.setValueAtTime(440, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.1);
+    },
+    
+    playZing() {
+        if (!this.audioCtx) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800, this.audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, this.audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.3, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.3);
+    },
+
+    renderMessage(text, type, senderLabel, time) {
+        const thread = document.getElementById('messages-thread');
+        if (!thread) return;
+        
+        // Prevent dupe visual on initial load
+        if(thread.lastElementChild && thread.lastElementChild.dataset.time == time) return;
+
+        const msg = document.createElement('div');
+        msg.className = \`msg-bubble \${type}\`;
+        msg.dataset.time = time;
+        
+        if (type === 'incoming' && senderLabel) {
+             const nameTag = document.createElement('span');
+             nameTag.className = 'msg-sender-name';
+             nameTag.textContent = senderLabel;
+             msg.appendChild(nameTag);
         }
         
-        setTimeout(() => {
-            body.classList.remove('nudge-animation');
-        }, 500);
+        const txt = document.createElement('span');
+        txt.className = 'msg-text';
+        txt.textContent = text;
+        msg.appendChild(txt);
+        
+        const timeEl = document.createElement('span');
+        timeEl.className = 'msg-time';
+        const d = time ? new Date(time) : new Date();
+        timeEl.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        msg.appendChild(timeEl);
+
+        msg.style.opacity = '0';
+        msg.style.transform = 'translateY(20px)';
+        thread.appendChild(msg);
+        
+        requestAnimationFrame(() => {
+            msg.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+            msg.style.opacity = '1';
+            msg.style.transform = 'translateY(0)';
+        });
+        thread.scrollTop = thread.scrollHeight;
     },
 
     showToast(message) {
@@ -635,7 +534,6 @@ const YAP = {
         toast.className = 'yap-toast';
         toast.textContent = message;
         document.body.appendChild(toast);
-        
         setTimeout(() => {
             toast.classList.add('visible');
             setTimeout(() => {
@@ -646,10 +544,9 @@ const YAP = {
     }
 };
 
-// Start the app
 document.addEventListener('DOMContentLoaded', () => {
     YAP.init();
-    window.YAP = YAP; // Make global for UI event handlers
+    window.YAP = YAP;
 });
 
 export default YAP;

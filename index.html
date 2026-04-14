@@ -6,7 +6,7 @@
     <title>YAP | Social Interaction & Messaging</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets-built/index-CeOPaSYb.js"></script>
+  <script type="module" crossorigin src="./assets-built/index-CWU-9cCj.js"></script>
   <link rel="stylesheet" crossorigin href="./assets-built/index-CTJur2y3.css">
 </head>
 <body class="dark-theme">
@@ -80,8 +80,8 @@
                     </div>
 
                     <form id="auth-form" class="auth-form">
-                        <div class="input-group">
-                            <label for="auth-displayname">Your Display Name</label>
+                        <div class="input-group" id="auth-displayname-group" style="display: none;">
+                            <label for="auth-displayname">Your Unique Username</label>
                             <input type="text" id="auth-displayname" placeholder="e.g. Your Name" autocomplete="nickname">
                         </div>
                         <div class="input-group">
@@ -122,6 +122,14 @@
         <!-- Main Chat UI -->
         <main id="chat-scene" class="scene">
             <div class="chat-layout glass-panel">
+                <!-- Mobile Active Header (Replaces Sidebar on Mobile) -->
+                <div class="mobile-chat-header" onclick="YAP.toggleMobileDirectory()">
+                    <div class="mobile-header-titles">
+                        <h2 id="mobile-room-name">Global YAP Room</h2>
+                        <span class="mobile-online-count" id="mobile-directory-count">🟢 Loading...</span>
+                    </div>
+                </div>
+
                 <!-- Sidebar -->
                 <aside class="chat-sidebar">
                     <div class="sidebar-header">
@@ -145,6 +153,23 @@
                         <div class="empty-state">Waiting for others...</div>
                     </div>
                 </aside>
+
+                <!-- Mobile Directory Modal -->
+                <div id="mobile-directory-modal" class="modal-overlay">
+                    <div class="modal-content glass-panel" style="max-height: 80vh; display: flex; flex-direction: column;">
+                        <header class="modal-header">
+                            <h3>🟢 Active Users</h3>
+                            <button class="modal-close" onclick="YAP.toggleMobileDirectory()">×</button>
+                        </header>
+                        <div class="modal-body" style="overflow-y: auto; flex: 1;">
+                            <ul class="user-list" id="mobile-active-users-list">
+                            </ul>
+                            <h3 style="margin-top: 20px; font-size: 0.9rem; color: rgba(255,255,255,0.6);">💬 Private YAPS</h3>
+                            <ul class="user-list" id="mobile-private-chats-list">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Conversation Section -->
                 <section class="conversation-view">
